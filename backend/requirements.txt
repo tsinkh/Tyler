@@ -2,3 +2,4 @@ sqlalchemy
 telethon
 fastapi
 uvicorn
+pysocks

@@ -1,8 +1,9 @@
 from telethon import TelegramClient
-from config import API_ID, API_HASH
+from config import API_ID, API_HASH, PROXY
 
 client = TelegramClient(
     "tyler_session",
     API_ID,
-    API_HASH
+    API_HASH,
+    proxy=PROXY
 )

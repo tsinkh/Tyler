@@ -1,18 +1,21 @@
 import asyncio
 
 from telegram import client
+from config import CHANNEL_ID
 
-from models import File
 from database import SessionLocal
+from models import File
 
 
-async def sync_channel(channel):
+async def sync():
+    await client.start()
 
     db = SessionLocal()
+    channel = await client.get_entity(CHANNEL_ID)
 
     async for msg in client.iter_messages(channel):
 
-        if not msg.file:
+        if not msg.document:
             continue
 
         exists = (
@@ -27,20 +30,25 @@ async def sync_channel(channel):
             continue
 
         filename = (
-            msg.file.name
-            if msg.file.name
-            else f"file_{msg.id}"
+            msg.document.name
+            if msg.document.name
+            else f"unknown_{msg.id}"
         )
 
-        item = File(
+        file = File(
             telegram_message_id=msg.id,
             file_name=filename,
-            file_size=msg.file.size,
+            file_size=msg.document.size,
             upload_time=msg.date
         )
 
-        db.add(item)
+        db.add(file)
+        print(
+            "Added:",
+            filename
+        )
 
     db.commit()
 
-    print("Sync completed")
+    db.close()
+asyncio.run(sync())telegram_message_ids = set()
