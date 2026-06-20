@@ -1,0 +1,4 @@
+sqlalchemy
+telethon
+fastapi
+uvicorn
