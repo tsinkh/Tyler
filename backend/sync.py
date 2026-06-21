@@ -1,13 +1,14 @@
 import asyncio
 
-from telegram import client
-from config import CHANNEL_ID
+from backend.telegram import client
+from backend.config import CHANNEL_ID
 
-from database import SessionLocal
-from models import File
+from backend.database import SessionLocal
+from backend.models import File
 
 
 async def sync():
+    telegram_message_ids = set()
     await client.start()
 
     db = SessionLocal()
@@ -15,8 +16,10 @@ async def sync():
 
     async for msg in client.iter_messages(channel):
 
-        if not msg.document:
+        if not msg.file:
             continue
+
+        telegram_message_ids.add(msg.id)
 
         exists = (
             db.query(File)
@@ -30,15 +33,15 @@ async def sync():
             continue
 
         filename = (
-            msg.document.name
-            if msg.document.name
+            msg.file.name
+            if msg.file.name
             else f"unknown_{msg.id}"
         )
 
         file = File(
             telegram_message_id=msg.id,
             file_name=filename,
-            file_size=msg.document.size,
+            file_size=msg.file.size,
             upload_time=msg.date
         )
 
@@ -48,7 +51,22 @@ async def sync():
             filename
         )
 
+    db_files = db.query(File).all()
+
+    for f in db_files:
+
+        if f.telegram_message_id in telegram_message_ids:
+            continue
+
+        print(
+            "Removed:",
+            f.file_name
+        )
+
+        db.delete(f)
+
     db.commit()
 
     db.close()
-asyncio.run(sync())telegram_message_ids = set()
+
+asyncio.run(sync())
