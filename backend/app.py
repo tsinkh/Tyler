@@ -9,7 +9,6 @@ app = FastAPI(
 )
 
 
-
 @app.get("/")
 def root():
 
@@ -19,46 +18,33 @@ def root():
     }
 
 
-
-
 @app.get("/files")
 def get_files():
 
-
     db = SessionLocal()
-
 
     files = (
         db.query(File)
         .all()
     )
 
-
     result = []
-
 
     for f in files:
 
         result.append(
             {
                 "id": f.id,
-
-                "name":
-                f.file_name,
-
-                "size":
-                f.file_size,
-
-                "telegram_message_id":
-                f.telegram_message_id,
-
-                "upload_time":
-                f.upload_time
+                "name": f.file_name,
+                "size": f.file_size,
+                "telegram_message_id": f.telegram_message_id,
+                "upload_time": f.upload_time,
+                "mime_type": f.mime_type,
+                "file_type": f.file_type,
+                "has_thumbnail": f.has_thumbnail
             }
         )
 
-
     db.close()
-
 
     return result

@@ -3,7 +3,8 @@ from sqlalchemy import (
     Integer,
     String,
     DateTime,
-    BigInteger
+    BigInteger,
+    Boolean
 )
 from sqlalchemy.orm import declarative_base
 
@@ -22,3 +23,9 @@ class File(Base):
     file_size = Column(BigInteger)
 
     upload_time = Column(DateTime)
+
+    mime_type = Column(String)
+
+    file_type = Column(String)
+
+    has_thumbnail = Column(Boolean, default=False)

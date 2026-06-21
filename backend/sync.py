@@ -1,4 +1,5 @@
 import asyncio
+import mimetypes
 
 from backend.telegram import client
 from backend.config import CHANNEL_ID
@@ -38,11 +39,32 @@ async def sync():
             else f"unknown_{msg.id}"
         )
 
+        mime_type = (
+            msg.file.mime_type
+            if msg.file.mime_type
+            else "unknown"
+        )
+
+        file_type = (
+            mimetypes.guess_extension(mime_type)
+            if mime_type != "unknown"
+            else "unknown"
+        )
+
+        has_thumbnail = False
+        if msg.document:
+            has_thumbnail = bool(
+                getattr(msg.document, "thumbs", None)
+            )
+
         file = File(
             telegram_message_id=msg.id,
             file_name=filename,
             file_size=msg.file.size,
-            upload_time=msg.date
+            upload_time=msg.date,
+            mime_type=mime_type,
+            file_type=file_type,
+            has_thumbnail=has_thumbnail
         )
 
         db.add(file)
