@@ -5,7 +5,7 @@ from backend.telegram import client
 from backend.config import CHANNEL_ID
 
 from backend.database import SessionLocal
-from backend.models import File
+from backend.models import File, Folder
 
 
 async def sync():
@@ -14,6 +14,14 @@ async def sync():
 
     db = SessionLocal()
     channel = await client.get_entity(CHANNEL_ID)
+
+    root_folder = (
+        db.query(Folder)
+        .filter(
+            Folder.parent_id == None
+        )
+        .first()
+    )
 
     async for msg in client.iter_messages(channel):
 
@@ -64,7 +72,8 @@ async def sync():
             upload_time=msg.date,
             mime_type=mime_type,
             file_type=file_type,
-            has_thumbnail=has_thumbnail
+            has_thumbnail=has_thumbnail,
+            folder_id=root_folder.id
         )
 
         db.add(file)
