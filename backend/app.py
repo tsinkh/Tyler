@@ -17,6 +17,57 @@ class MoveFile(BaseModel):
     folder_id: int
 
 
+def build_tree(folder, db):
+
+    children = (
+        db.query(Folder)
+        .filter(
+            Folder.parent_id == folder.id
+        )
+        .all()
+    )
+
+    files = (
+        db.query(File)
+        .filter(
+            File.folder_id == folder.id
+        )
+        .all()
+    )
+
+    node = {
+        "id": folder.id,
+        "name": folder.name,
+        "type": "folder",
+        "children": [],
+        "files": []
+    }
+
+    for child in children:
+
+        node["children"].append(
+            build_tree(
+                child,
+                db
+            )
+        )
+
+    for file in files:
+
+        node["files"].append(
+
+            {
+                "id": file.id,
+                "name": file.file_name,
+                "size": file.file_size,
+                "mime_type": file.mime_type,
+                "type": "file"
+            }
+        )
+
+    return node
+
+
 @app.get("/")
 def root():
 
@@ -151,3 +202,126 @@ def move_file(
         "message":
         "moved"
     }
+
+
+@app.get("/folders/{folder_id}")
+def get_folder_content(folder_id: int):
+
+    db = SessionLocal()
+    folder = (
+        db.query(Folder)
+        .filter(
+            Folder.id == folder_id
+        )
+        .first()
+    )
+
+    if not folder:
+
+        db.close()
+
+        return {
+            "error": "folder not found"
+        }
+
+    children = (
+        db.query(Folder)
+        .filter(
+            Folder.parent_id == folder_id
+        )
+        .all()
+    )
+
+    files = (
+        db.query(File)
+        .filter(
+            File.folder_id == folder_id
+        )
+        .all()
+    )
+
+    result = {
+        "folder": {
+            "id": folder.id,
+            "name": folder.name
+        },
+        "children": [],
+        "files": []
+    }
+
+    for child in children:
+
+        result["children"].append(
+            {
+                "id": child.id,
+                "name": child.name
+            }
+        )
+
+    for file in files:
+
+        result["files"].append(
+            {
+                "id": file.id,
+                "name": file.file_name,
+                "size": file.file_size,
+                "mime_type": file.mime_type
+            }
+        )
+
+    db.close()
+
+    return result
+
+
+@app.get("/root")
+def get_root():
+
+    db = SessionLocal()
+
+    root = (
+        db.query(Folder)
+        .filter(
+            Folder.parent_id == None
+        )
+        .first()
+    )
+
+    db.close()
+
+    return {
+        "id": root.id,
+        "name": root.name
+    }
+
+
+@app.get("/tree")
+def get_tree():
+
+    db = SessionLocal()
+
+    root = (
+        db.query(Folder)
+        .filter(
+            Folder.parent_id == None
+        )
+        .first()
+    )
+
+    if not root:
+
+        db.close()
+
+        return {
+            "error":
+            "no root folder"
+        }
+
+    tree = build_tree(
+        root,
+        db
+    )
+
+    db.close()
+
+    return tree

@@ -15,10 +15,10 @@ async def sync():
     db = SessionLocal()
     channel = await client.get_entity(CHANNEL_ID)
 
-    root_folder = (
+    uncategorized_folder = (
         db.query(Folder)
         .filter(
-            Folder.parent_id == None
+            Folder.name == "未分类"
         )
         .first()
     )
@@ -73,7 +73,7 @@ async def sync():
             mime_type=mime_type,
             file_type=file_type,
             has_thumbnail=has_thumbnail,
-            folder_id=root_folder.id
+            folder_id=uncategorized_folder.id
         )
 
         db.add(file)

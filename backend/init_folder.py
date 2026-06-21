@@ -5,7 +5,7 @@ from backend.models import Folder
 db = SessionLocal()
 
 root = Folder(
-    name="未分类",
+    name="Tyler",
     parent_id=None
 )
 
@@ -13,9 +13,17 @@ db.add(root)
 
 db.commit()
 
-print(
-    "Created folder:",
-    root.id
+db.refresh(root)
+
+uncategorized = Folder(
+    name="未分类",
+    parent_id=root.id
 )
 
+db.add(uncategorized)
+
+db.commit()
+
 db.close()
+
+print("Folder initialized")
