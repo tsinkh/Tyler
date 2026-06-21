@@ -1,13 +1,35 @@
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import io
+from urllib.parse import quote
 
 from backend.database import SessionLocal
 from backend.models import File, Folder
+from backend.telegram import client
+from backend.config import CHANNEL_ID
 
 
 app = FastAPI(
     title="Tyler API"
 )
+
+def build_content_disposition(filename: str) -> str:
+
+    ascii_filename = (
+        filename.encode("ascii", "ignore").decode("ascii").strip()
+        or "download"
+    )
+
+    return (
+        f'attachment; filename="{ascii_filename}"; '
+        f"filename*=UTF-8''{quote(filename)}"
+    )
+
+@app.on_event("startup")
+async def startup_event():
+
+    await client.start()
 
 class FolderCreate(BaseModel):
     name: str
@@ -15,7 +37,6 @@ class FolderCreate(BaseModel):
 
 class MoveFile(BaseModel):
     folder_id: int
-
 
 def build_tree(folder, db):
 
@@ -55,7 +76,6 @@ def build_tree(folder, db):
     for file in files:
 
         node["files"].append(
-
             {
                 "id": file.id,
                 "name": file.file_name,
@@ -204,7 +224,7 @@ def move_file(
     }
 
 
-@app.get("/folders/{folder_id}")
+@app.get("/folders/{folder_id}/content")
 def get_folder_content(folder_id: int):
 
     db = SessionLocal()
@@ -224,7 +244,7 @@ def get_folder_content(folder_id: int):
             "error": "folder not found"
         }
 
-    children = (
+    folders = (
         db.query(Folder)
         .filter(
             Folder.parent_id == folder_id
@@ -245,16 +265,16 @@ def get_folder_content(folder_id: int):
             "id": folder.id,
             "name": folder.name
         },
-        "children": [],
+        "folders": [],
         "files": []
     }
 
-    for child in children:
+    for f in folders:
 
-        result["children"].append(
+        result["folders"].append(
             {
-                "id": child.id,
-                "name": child.name
+                "id": f.id,
+                "name": f.name
             }
         )
 
@@ -265,7 +285,8 @@ def get_folder_content(folder_id: int):
                 "id": file.id,
                 "name": file.file_name,
                 "size": file.file_size,
-                "mime_type": file.mime_type
+                "mime_type": file.mime_type,
+                "file_type": file.file_type
             }
         )
 
@@ -325,3 +346,103 @@ def get_tree():
     db.close()
 
     return tree
+
+
+@app.get("/files/{file_id}")
+def get_file(file_id:int):
+
+    db = SessionLocal()
+
+    file = (
+        db.query(File)
+        .filter(
+            File.id == file_id
+        )
+        .first()
+    )
+
+    if not file:
+
+        db.close()
+
+        return {
+            "error":
+            "file not found"
+        }
+
+    result = {
+        "id": file.id,
+        "name": file.file_name,
+        "size": file.file_size,
+        "mime_type": file.mime_type,
+        "file_type": file.file_type,
+        "telegram_message_id": file.telegram_message_id,
+        "upload_time": file.upload_time
+    }
+
+    db.close()
+
+    return result
+
+
+@app.get("/files/{file_id}/download")
+async def download_file(file_id:int):
+
+    db = SessionLocal()
+
+    file = (
+        db.query(File)
+        .filter(
+            File.id == file_id
+        )
+        .first()
+    )
+
+    if not file:
+
+        db.close()
+
+        return {
+            "error":
+            "file not found"
+        }
+
+    message = await client.get_messages(
+        CHANNEL_ID,
+        ids=file.telegram_message_id
+    )
+
+    if not message:
+
+        db.close()
+
+        return {
+            "error":
+            "telegram file not found"
+        }
+
+    async def file_stream():
+
+        buffer = io.BytesIO()
+
+        await client.download_media(
+            message,
+            file=buffer
+        )
+
+        buffer.seek(0)
+
+        while chunk := buffer.read(1024*1024):
+
+            yield chunk
+
+    db.close()
+
+    return StreamingResponse(
+        file_stream(),
+        media_type=file.mime_type,
+        headers={
+            "Content-Disposition":
+            build_content_disposition(file.file_name)
+        }
+    )
